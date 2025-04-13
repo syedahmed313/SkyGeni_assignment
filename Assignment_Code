@@ -1,0 +1,58 @@
+--Assignment
+
+--First QUestion 
+-- How many finance lending and blockchain clients does the organization have?
+
+SELECT industry, COUNT(DISTINCT client_id) AS client_count
+FROM Industry_client_details
+WHERE industry IN ('Finance Lending', 'Block chain')
+GROUP BY industry;
+
+--Second Question
+-- Which industry in the organization has the highest renewal rate?
+
+SELECT TOP 1 i.industry, COUNT(*) AS renewal_count
+FROM subscription_information s
+JOIN Industry_client_details i ON s.client_id = i.client_id
+WHERE s.renewed = 'TRUE'
+GROUP BY i.industry
+ORDER BY renewal_count DESC;
+
+-- Third Question
+-- What was the average inflation rate when their subscriptions were renewed?
+
+SELECT AVG(f.inflation_rate) AS avg_inflation_rate
+FROM subscription_information s
+JOIN finanical_information f 
+  ON s.start_date BETWEEN f.start_date AND f.end_date
+WHERE s.renewed = 'TRUE';
+
+-- Fourth Question
+-- What is the median amount paid each year for all payment methods? 
+
+WITH OrderedPayments AS (
+    SELECT 
+        YEAR(payment_date) AS payment_year,
+        payment_method,
+        amount_paid,
+        ROW_NUMBER() OVER (PARTITION BY YEAR(payment_date), payment_method ORDER BY amount_paid) AS rn_asc,
+        COUNT(*) OVER (PARTITION BY YEAR(payment_date), payment_method) AS total_count
+    FROM Payment_information
+),
+MedianPayments AS (
+    SELECT 
+        payment_year,
+        payment_method,
+        amount_paid,
+        total_count,
+        rn_asc
+    FROM OrderedPayments
+    WHERE rn_asc = (total_count + 1) / 2
+       OR rn_asc = (total_count + 2) / 2  -- For even counts (take avg of two middle)
+)
+SELECT 
+    payment_year,
+    payment_method,
+    AVG(amount_paid * 1.0) AS median_amount_paid
+FROM MedianPayments
+GROUP BY payment_year, payment_method;
